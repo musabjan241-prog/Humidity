@@ -1,64 +1,113 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Live Temperature & Humidity Dashboard</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <style>
-    body { font-family: Arial; margin: 20px; }
-    h2 { text-align: center; }
-    canvas { max-width: 1000px; margin: auto; display: block; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Live Dashboard - Temperature & Humidity</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  body { font-family: Arial; margin: 0; padding: 0; background: #f4f4f4; }
+  header { text-align: center; padding: 0px; background: #222; color: #fff; font-size: 1.5em; }
+  .container { display: flex; flex-wrap: wrap; padding: 10px; }
+  .table-container { flex: 1; min-width: 300px; margin-right: 10px; background: #fff; padding: 10px; border-radius: 5px; max-height: 600px; overflow-y: auto; }
+  .chart-container { flex: 2; min-width: 300px; background: #fff; padding: 10px; border-radius: 5px; }
+  table { width: 100%; border-collapse: collapse; }
+  table th, table td { border: 1px solid #ddd; padding: 5px; text-align: center; }
+  table th { background: #222; color: #fff; }
+  .alerts { background: #fff; margin: 10px auto; padding: 10px; border-radius: 5px; max-width: 1000px; min-height: 60px; }
+  .alert-item { color: red; font-weight: bold; }
+</style>
 </head>
 <body>
 
-<h2>🌡 Live Temperature & 💧 Humidity Dashboard</h2>
-<canvas id="myChart"></canvas>
+<header><h3>🌡 Live Temperature & 💧 Humidity Dashboard</header>
+
+<div class="container">
+  <div class="table-container">
+    <h3>Latest Readings</h3>
+    <table id="dataTable">
+      <thead>
+        <tr><th>Time</th><th>Temp (°C)</th><th>Humidity (%)</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+  <div class="chart-container">
+    <canvas id="myChart"></canvas>
+  </div>
+</div>
+
+<div class="alerts" id="alerts">
+  <strong>Alerts & Logs:</strong>
+  <div id="alertContent"></div>
+</div>
 
 <script>
 const sheetURL = "https://opensheet.elk.sh/1Om7C4niF3p1A9dEc_8I7xWJtTlsbK0p-54gS5PKzEHM/Sheet1";
 let myChart = null;
 
-async function loadData() {
-  try {
-    const res = await fetch(sheetURL);
-    const data = await res.json();
+function loadData() {
+  fetch(sheetURL)
+    .then(res => res.json())
+    .then(data => {
 
-    const labels = data.map(r => r["Time Stamp"]);
-    const temp   = data.map(r => Number(r["Temperature "]));
-    const hum    = data.map(r => Number(r["Humidity "]));
+      // --- Update Table ---
+      const tbody = document.querySelector("#dataTable tbody");
+      tbody.innerHTML = "";
+      const last10 = data.slice(-10); // last 10 readings
+      last10.forEach(row => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td>${row["Time Stamp"]}</td><td>${row["Temperature "]}</td><td>${row["Humidity "]}</td>`;
+        tbody.appendChild(tr);
+      });
 
-    const ctx = document.getElementById("myChart").getContext("2d");
+      // --- Update Chart ---
+      const labels = data.map(r => r["Time Stamp"]);
+      const temp = data.map(r => Number(r["Temperature "]));
+      const hum = data.map(r => Number(r["Humidity "]));
+      const ctx = document.getElementById("myChart").getContext("2d");
+      if(myChart) myChart.destroy();
 
-    if (myChart) myChart.destroy();
+      myChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [
+            { label: "Temperature (°C)", data: temp, borderColor: 'red', borderWidth: 2 },
+            { label: "Humidity (%)", data: hum, borderColor: 'blue', borderWidth: 2 }
+          ]
+        },
+        options: { responsive: true, animation: false }
+      });
 
-    myChart = new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels: labels,
-        datasets: [
-          { label: "Temperature (°C)", data: temp, borderColor: 'red', borderWidth: 2 },
-          { label: "Humidity (%)", data: hum, borderColor: 'blue', borderWidth: 2 }
-        ]
-      },
-      options: {
-        responsive: true,
-        animation: false,
-        scales: { y: { beginAtZero: false } }
-      }
-    });
+      // --- Alerts & Logs ---
+      const alertDiv = document.getElementById("alertContent");
+      alertDiv.innerHTML = "";
+      last10.forEach(r => {
+        if(Number(r["Temperature "]) > 30) {
+          const div = document.createElement("div");
+          div.className = "alert-item";
+          div.textContent = `High Temp Alert! ${r["Temperature "]}°C at ${r["Time Stamp"]}`;
+          alertDiv.appendChild(div);
+        }
+        if(Number(r["Humidity "]) < 35) {
+          const div = document.createElement("div");
+          div.className = "alert-item";
+          div.textContent = `Low Humidity Alert! ${r["Humidity "]}% at ${r["Time Stamp"]}`;
+          alertDiv.appendChild(div);
+        }
+      });
 
-  } catch (err) {
-    console.error("Error fetching data:", err);
-  }
+    }).catch(err => console.error("Error fetching data:", err));
 }
 
-// Initial load
+// First load
 loadData();
 // Auto-refresh every 10 seconds
 setInterval(loadData, 10000);
 </script>
+
+<center><h1>Develop By Musab Jan and Team </h1></center>
 
 </body>
 </html>
