@@ -5,29 +5,34 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Live Dashboard - Temperature & Humidity</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
 <style>
-  body { font-family: Arial; margin: 0; padding: 0; background: #f4f4f4; }
-  header { text-align: center; padding: 0px; background: #222; color: #fff; font-size: 1.5em; }
-  .container { display: flex; flex-wrap: wrap; padding: 10px; }
-  .table-container { flex: 1; min-width: 300px; margin-right: 10px; background: #fff; padding: 10px; border-radius: 5px; max-height: 600px; overflow-y: auto; }
-  .chart-container { flex: 2; min-width: 300px; background: #fff; padding: 10px; border-radius: 5px; }
-  table { width: 100%; border-collapse: collapse; }
-  table th, table td { border: 1px solid #ddd; padding: 5px; text-align: center; }
-  table th { background: #222; color: #fff; }
-  .alerts { background: #fff; margin: 10px auto; padding: 10px; border-radius: 5px; max-width: 1000px; min-height: 60px; }
-  .alert-item { color: red; font-weight: bold; }
+body { font-family: Arial; margin: 0; background: #f4f4f4; }
+header { background:#222; color:#fff; padding:10px; text-align:center; }
+#deviceStatus {
+  margin-top:5px;
+  font-weight:bold;
+  padding:6px 10px;
+  display:inline-block;
+  border-radius:6px;
+}
+.container { display:flex; padding:10px; flex-wrap:wrap; }
+.table-container { flex:1; background:#fff; padding:10px; margin-right:10px; border-radius:5px; max-height:600px; overflow:auto; }
+.chart-container { flex:2; background:#fff; padding:10px; border-radius:5px; }
+table { width:100%; border-collapse:collapse; }
+th, td { border:1px solid #ddd; padding:5px; text-align:center; }
+th { background:#222; color:#fff; }
+.alerts { background:#fff; margin:10px; padding:10px; border-radius:5px; }
+.alert-item { color:red; font-weight:bold; }
 </style>
 </head>
+
 <body>
 
-<header><h3>🌡 Live Temperature & 💧 Humidity Dashboard</header>
-<div id="deviceStatus" style="
-  text-align:center;
-  font-weight:bold;
-  padding:6px;
-  font-size:16px;">
-Checking device status...
-</div>
+<header>
+  <h3>🌡 Live Temperature & 💧 Humidity Dashboard</h3>
+  <div id="deviceStatus">Checking device status...</div>
+</header>
 
 <div class="container">
   <div class="table-container">
@@ -39,12 +44,13 @@ Checking device status...
       <tbody></tbody>
     </table>
   </div>
+
   <div class="chart-container">
     <canvas id="myChart"></canvas>
   </div>
 </div>
 
-<div class="alerts" id="alerts">
+<div class="alerts">
   <strong>Alerts & Logs:</strong>
   <div id="alertContent"></div>
 </div>
@@ -58,81 +64,77 @@ function loadData() {
     .then(res => res.json())
     .then(data => {
 
-      // --- Update Table ---
+      if (!data || data.length === 0) return;
+
+      // ===== TABLE =====
       const tbody = document.querySelector("#dataTable tbody");
       tbody.innerHTML = "";
-      const last10 = data.slice(-10); // last 10 readings
-      last10.forEach(row => {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `<td>${row["Time Stamp"]}</td><td>${row["Temperature "]}</td><td>${row["Humidity "]}</td>`;
-        tbody.appendChild(tr);
+      const last10 = data.slice(-10);
+
+      last10.forEach(r => {
+        tbody.innerHTML += `
+          <tr>
+            <td>${r["Time Stamp"]}</td>
+            <td>${r["Temperature "]}</td>
+            <td>${r["Humidity "]}</td>
+          </tr>`;
       });
 
-      // --- Update Chart ---
+      // ===== CHART =====
       const labels = data.map(r => r["Time Stamp"]);
       const temp = data.map(r => Number(r["Temperature "]));
       const hum = data.map(r => Number(r["Humidity "]));
+
       const ctx = document.getElementById("myChart").getContext("2d");
-      if(myChart) myChart.destroy();
+      if (myChart) myChart.destroy();
 
       myChart = new Chart(ctx, {
         type: 'line',
         data: {
-          labels: labels,
+          labels,
           datasets: [
-            { label: "Temperature (°C)", data: temp, borderColor: 'red', borderWidth: 2 },
-            { label: "Humidity (%)", data: hum, borderColor: 'blue', borderWidth: 2 }
+            { label:"Temperature (°C)", data:temp, borderColor:"red", borderWidth:2 },
+            { label:"Humidity (%)", data:hum, borderColor:"blue", borderWidth:2 }
           ]
         },
-        options: { responsive: true, animation: false }
+        options:{ responsive:true, animation:false }
       });
 
-      // --- Alerts & Logs ---
+      // ===== ALERTS =====
       const alertDiv = document.getElementById("alertContent");
       alertDiv.innerHTML = "";
       last10.forEach(r => {
-        if(Number(r["Temperature "]) > 30) {
-          const div = document.createElement("div");
-          div.className = "alert-item";
-          div.textContent = `High Temp Alert! ${r["Temperature "]}°C at ${r["Time Stamp"]}`;
-          alertDiv.appendChild(div);
-        }
-        if(Number(r["Humidity "]) < 35) {
-          const div = document.createElement("div");
-          div.className = "alert-item";
-          div.textContent = `Low Humidity Alert! ${r["Humidity "]}% at ${r["Time Stamp"]}`;
-          alertDiv.appendChild(div);
-        }
+        if (Number(r["Temperature "]) > 30)
+          alertDiv.innerHTML += `🔥 High Temp ${r["Temperature "]}°C at ${r["Time Stamp"]}<br>`;
+        if (Number(r["Humidity "]) < 35)
+          alertDiv.innerHTML += `⚠ Low Humidity ${r["Humidity "]}% at ${r["Time Stamp"]}<br>`;
       });
 
-    }).catch(err => console.error("Error fetching data:", err));
+      // ===== DEVICE STATUS =====
+      const status = document.getElementById("deviceStatus");
+      const lastRow = data[data.length - 1];
+      const lastTime = new Date(lastRow["Time Stamp"]);
+      const now = new Date();
+      const diff = (now - lastTime) / 1000;
+
+      if (diff <= 30) {
+        status.innerHTML = "🟢 ESP8266 ONLINE";
+        status.style.background = "green";
+        status.style.color = "white";
+      } else {
+        status.innerHTML = "🔴 ESP8266 OFFLINE";
+        status.style.background = "red";
+        status.style.color = "white";
+      }
+    })
+    .catch(err => console.error(err));
 }
 
-// First load
 loadData();
-// Auto-refresh every 10 seconds
 setInterval(loadData, 10000);
-
-// 🟢 DEVICE ONLINE / OFFLINE CHECK
-const last = data[data.length - 1];
-const lastTime = new Date(last["Time Stamp"]);
-const now = new Date();
-const diffSeconds = (now - lastTime) / 1000;
-
-const statusDiv = document.getElementById("deviceStatus");
-
-if (diffSeconds <= 30) {
-  statusDiv.innerHTML = "🟢 ESP8266 ONLINE";
-  statusDiv.style.color = "green";
-} else {
-  statusDiv.innerHTML = "🔴 ESP8266 OFFLINE (No data)";
-  statusDiv.style.color = "red";
-}
-
-
 </script>
 
-<center><h1>Develop By Musab Jan and Team </h1></center>
+<center><h3>Developed by Musab Jan & Team</h3></center>
 
 </body>
 </html>
