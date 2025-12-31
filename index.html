@@ -21,6 +21,13 @@
 <body>
 
 <header><h3>🌡 Live Temperature & 💧 Humidity Dashboard</header>
+<div id="deviceStatus" style="
+  text-align:center;
+  font-weight:bold;
+  padding:6px;
+  font-size:16px;">
+Checking device status...
+</div>
 
 <div class="container">
   <div class="table-container">
@@ -105,6 +112,24 @@ function loadData() {
 loadData();
 // Auto-refresh every 10 seconds
 setInterval(loadData, 10000);
+
+// 🟢 DEVICE ONLINE / OFFLINE CHECK
+const last = data[data.length - 1];
+const lastTime = new Date(last["Time Stamp"]);
+const now = new Date();
+const diffSeconds = (now - lastTime) / 1000;
+
+const statusDiv = document.getElementById("deviceStatus");
+
+if (diffSeconds <= 30) {
+  statusDiv.innerHTML = "🟢 ESP8266 ONLINE";
+  statusDiv.style.color = "green";
+} else {
+  statusDiv.innerHTML = "🔴 ESP8266 OFFLINE (No data)";
+  statusDiv.style.color = "red";
+}
+
+
 </script>
 
 <center><h1>Develop By Musab Jan and Team </h1></center>
